@@ -87,6 +87,8 @@ var require = (function() {
 		navigator: typeof win.navigator !== 'undefined' && win.navigator || {},
 		setTimeout: win.setTimeout,
 		clearTimeout: win.clearTimeout,
+		TextEncoder: TextEncoder,
+		TextDecoder: TextDecoder,
 	};
 	Object.defineProperty(globals, 'Zotero', { get: getZotero });
 	var loader = Loader({

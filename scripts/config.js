@@ -32,6 +32,7 @@ const symlinkFiles = [
 	'!resource/react.js',
 	'!resource/react-dom.js',
 	'!resource/react-virtualized.js',
+	'!resource/citeproc_rs_wasm.js',
 	'update.rdf'
 ];
 
@@ -84,6 +85,7 @@ const jsFiles = [
 	'resource/react.js',
 	'resource/react-dom.js',
 	'resource/react-virtualized.js',
+	'resource/citeproc_rs_wasm.js',
 ];
 
 const scssFiles = [

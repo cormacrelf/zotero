@@ -47,6 +47,12 @@ async function babelWorker(ev) {
 				.replace('document.body.appendChild(scrollDiv)', 'document.documentElement.appendChild(scrollDiv)')
 				.replace('document.body.removeChild(scrollDiv)', 'document.documentElement.removeChild(scrollDiv)');
 		}
+		// Patch citeproc_rs_wasm
+		else if (comparePaths(sourcefile, 'resource/citeproc_rs_wasm.js')) {
+			transformed = contents.replace('export class Driver', 'class Driver')
+				.replace('export default init', 'module.exports = init; module.exports.Driver = Driver')
+				.replace('input = import', '// input = import');
+		}
 		else if ('ignore' in options && options.ignore.some(ignoreGlob => multimatch(sourcefile, ignoreGlob).length)) {
 			transformed = contents;
 			isSkipped = true;
