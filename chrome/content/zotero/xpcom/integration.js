@@ -1878,8 +1878,8 @@ Zotero.Integration.Session.prototype._updateCitationsCiteprocRs = async function
 			var citation = this.citationsByIndex[index];
 			citation = citation.toJSON();
 
-			Zotero.debug(`Integration: citeprocRs.setCluster(${citation.toSource()})`);
-			this.style.setCluster(citation);
+			Zotero.debug(`Integration: citeprocRs.insertCluster(${citation.toSource()})`);
+			this.style.insertCluster(citation);
 		}
 	}
 	

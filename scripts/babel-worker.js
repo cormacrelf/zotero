@@ -49,9 +49,11 @@ async function babelWorker(ev) {
 		}
 		// Patch citeproc_rs_wasm
 		else if (comparePaths(sourcefile, 'resource/citeproc_rs_wasm.js')) {
-			transformed = contents.replace('export class Driver', 'class Driver')
+      transformed = contents
+        .replace('export class Driver', 'class Driver')
 				.replace('export default init', 'module.exports = init; module.exports.Driver = Driver')
-				.replace('input = import', '// input = import');
+        .replace('input = import', '// input = import')
+        + "\nmodule.exports = wasm_bindgen;";
 		}
 		else if ('ignore' in options && options.ignore.some(ignoreGlob => multimatch(sourcefile, ignoreGlob).length)) {
 			transformed = contents;

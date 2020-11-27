@@ -14,28 +14,32 @@
 	
 	Zotero is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
 	GNU Affero General Public License for more details.
 
 	You should have received a copy of the GNU Affero General Public License
-	along with Zotero.  If not, see <http://www.gnu.org/licenses/>.
+	along with Zotero.	If not, see <http://www.gnu.org/licenses/>.
 	
 	***** END LICENSE BLOCK *****
 */
 
+// Zotero.Prefs.set('cite.useCiteprocRs', true);
+
 Zotero.CiteprocRs = {
 	init: async function () {
 		Zotero.debug("require('citeproc_rs_wasm')");
-		const CiteprocRs = require('citeproc_rs_wasm');
+		let wasm_bindgen = require('citeproc_rs_wasm');
+		const init = wasm_bindgen;
+		const { Driver } = wasm_bindgen;
 		// Initialize the wasm code
 		Zotero.debug("Loading citeproc-rs wasm binary");
 		const xhr = await Zotero.HTTP.request('GET', 'resource://zotero/citeproc_rs_wasm_bg.wasm', {
 			responseType: "arraybuffer"
 		});
 		Zotero.debug("Initializing the CiteprocRs wasm driver");
-		CiteprocRs(xhr.response);
+		await init(Promise.resolve(xhr.response));
 		Zotero.debug("CiteprocRs driver initialized successfully");
-		this.Driver = CiteprocRs.Driver;
+		this.Driver = Driver;
 	},
 	
 	Engine: class {
@@ -58,6 +62,10 @@ Zotero.CiteprocRs = {
 		}
 		
 		_resetDriver() {
+			if (Zotero.CiteprocRs.Driver == null) {
+				Zotero.debug('CiteprocRs: Driver not ready yet', 5);
+				return;
+			}
 			if (this._driver) {
 				Zotero.debug('CiteprocRs: free Driver', 5);
 				this._driver.free();
@@ -126,7 +134,7 @@ Zotero.CiteprocRs = {
 			return this._driver.previewCitationCluster(cluster, allClusterOrder, outputFormat);
 		}
 		
-		setCluster(citation) {
+		insertCluster(citation) {
 			const numericID = this._idCounter++;
 			let cluster = { id: numericID };
 			this._stringIDToNumberID.set(citation.citationID, numericID);
@@ -157,7 +165,7 @@ Zotero.CiteprocRs = {
 			this._format = format;
 			this._resetDriver();
 			for (let citation of citations) {
-				this.setCluster(citation);
+				this.insertCluster(citation);
 			}
 			this.setClusterOrder(citations.map(
 				citation => [citation.citationID, citation.properties.noteIndex]));

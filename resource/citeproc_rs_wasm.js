@@ -1,1 +1,1 @@
-../node_modules/@citeproc-rs/wasm/_web/citeproc_rs_wasm.js
+../node_modules/@citeproc-rs/wasm/_no_modules/citeproc_rs_wasm.js
