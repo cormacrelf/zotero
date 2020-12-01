@@ -65,6 +65,7 @@ Zotero.CiteprocRs = {
 			if (this._driver) {
 				Zotero.debug('CiteprocRs: free Driver', 5);
 				this._driver.free();
+				this._driver = null;
 			}
 			Zotero.debug('CiteprocRs: new Driver', 5);
 			this._driver = Zotero.CiteprocRs.Driver.new({
