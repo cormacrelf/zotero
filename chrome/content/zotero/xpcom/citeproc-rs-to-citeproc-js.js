@@ -26,19 +26,41 @@
 // Zotero.Prefs.set('cite.useCiteprocRs', true);
 
 Zotero.CiteprocRs = {
+	wasmInitPromise: null,
+
 	init: async function () {
-		Zotero.debug("require('citeproc_rs_wasm_include')");
-		const { CiteprocRsError } = require('citeproc_rs_wasm_include')
-		Zotero.debug("require('citeproc_rs_wasm')");
-		let init = require('citeproc_rs_wasm');
-		// Initialize the wasm code
-		Zotero.debug("Loading citeproc-rs wasm binary");
-		const xhr = await Zotero.HTTP.request('GET', 'resource://zotero/citeproc_rs_wasm_bg.wasm', {
-			responseType: "arraybuffer"
-		});
-		Zotero.debug("Initializing the CiteprocRs wasm driver");
-		await init(Promise.resolve(xhr.response));
-		Zotero.debug("CiteprocRs driver initialized successfully");
+		// We have to initialize the wasm module instance exactly once. If we
+		// do it more than once, it will overwrite the instance that existing
+		// Drivers refer to, and their pointers will become invalid.
+		if (Zotero.CiteprocRs.wasmInitPromise != null) {
+			// will return on next tick if already loaded
+			// or if not complete, will wait for it to finish.
+			Zotero.debug("CiteprocRs: Already loaded or started to load wasm module");
+			await Zotero.CiteprocRs.wasmInitPromise;
+		} else {
+			async function wasmInit() {
+				// First load the JS code that interacts with the wasm
+				Zotero.debug("require('citeproc_rs_wasm_include')");
+				require('citeproc_rs_wasm_include')
+				Zotero.debug("require('citeproc_rs_wasm')");
+				let initWasmModule = require('citeproc_rs_wasm');
+
+				// The Driver & parseStyleMetadata are now stored on Zotero.CiteprocRs
+				// As are the helpers/error classes in citeproc_rs_wasm_include.
+				// However, Driver/parseStyleMetadata will not be able to work until
+				// the wasm itself is loaded.
+
+				// Initialize the wasm itself
+				Zotero.debug("Loading citeproc-rs wasm binary");
+				const xhr = await Zotero.HTTP.request('GET', 'resource://zotero/citeproc_rs_wasm_bg.wasm', {
+					responseType: "arraybuffer"
+				});
+				Zotero.debug("Initializing the CiteprocRs wasm module");
+				await initWasmModule(Promise.resolve(xhr.response));
+				Zotero.debug("CiteprocRs wasm module initialized successfully");
+			}
+			Zotero.CiteprocRs.wasmInitPromise = wasmInit();
+		}
 	},
 	
 	Engine: class {
