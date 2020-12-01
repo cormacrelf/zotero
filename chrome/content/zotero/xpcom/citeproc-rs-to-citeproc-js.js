@@ -93,6 +93,9 @@ Zotero.CiteprocRs = {
 		}
 		
 		_insertCitationReferences(citation) {
+			if (!this._driver) {
+				this._resetDriver();
+			}
 			let cites = [];
 			for (const citationItem of citation.citationItems) {
 				let citeprocItem = this.sys.retrieveItem(citationItem.id);
@@ -118,6 +121,9 @@ Zotero.CiteprocRs = {
 		}
 
 		previewCitationCluster(citation, citationsPre, citationsPost, outputFormat) {
+			if (!this._driver) {
+				this._resetDriver();
+			}
 			if (!citation.citationID) citation.citationID = Zotero.Utilities.randomString(10);
 			
 			let cites = this._insertCitationReferences(citation);
@@ -136,6 +142,9 @@ Zotero.CiteprocRs = {
 		}
 		
 		insertCluster(citation) {
+			if (!this._driver) {
+				this._resetDriver();
+			}
 			let cluster = { id: citation.citationID };
 			cluster.cites = this._insertCitationReferences(citation);
 
@@ -145,12 +154,18 @@ Zotero.CiteprocRs = {
 		}
 	
 		setClusterOrder(citations) {
+			if (!this._driver) {
+				this._resetDriver();
+			}
 			let clusters = this._getClusterOrder(citations);
 			Zotero.debug(`CiteprocRs: setClusterOrder ${JSON.stringify(clusters)}`, 5);
 			this._driver.setClusterOrder(clusters).unwrap();
 		}
 		
 		getBatchedUpdates() {
+			if (!this._driver) {
+				this._resetDriver();
+			}
 			Zotero.debug(`CiteprocRs: batchedUpdates`, 5);
 			let updateSummary = this._driver.batchedUpdates().unwrap();
 			updateSummary.clusters = updateSummary.clusters.map(([id, output]) => {
@@ -171,6 +186,9 @@ Zotero.CiteprocRs = {
 		}
 		
 		updateUncitedItems(itemIDs) {
+			if (!this._driver) {
+				this._resetDriver();
+			}
 			let referenceIDs = [];
 			for (let id of itemIDs) {
 				let citeprocItem = this.sys.retrieveItem(id);
@@ -184,6 +202,9 @@ Zotero.CiteprocRs = {
 		}
 		
 		makeBibliography() {
+			if (!this._driver) {
+				this._resetDriver();
+			}
 			Zotero.debug(`CiteprocRs: bibliographyMeta`, 5);
 			
 			// Converting from the wrongly documented citeproc-rs return format
