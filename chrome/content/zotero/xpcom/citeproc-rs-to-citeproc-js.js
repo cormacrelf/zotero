@@ -27,10 +27,10 @@
 
 Zotero.CiteprocRs = {
 	init: async function () {
+		Zotero.debug("require('citeproc_rs_wasm_include')");
+		const { CiteprocRsError } = require('citeproc_rs_wasm_include')
 		Zotero.debug("require('citeproc_rs_wasm')");
-		let wasm_bindgen = require('citeproc_rs_wasm');
-		const init = wasm_bindgen;
-		const { Driver } = wasm_bindgen;
+		let init = require('citeproc_rs_wasm');
 		// Initialize the wasm code
 		Zotero.debug("Loading citeproc-rs wasm binary");
 		const xhr = await Zotero.HTTP.request('GET', 'resource://zotero/citeproc_rs_wasm_bg.wasm', {
@@ -39,16 +39,12 @@ Zotero.CiteprocRs = {
 		Zotero.debug("Initializing the CiteprocRs wasm driver");
 		await init(Promise.resolve(xhr.response));
 		Zotero.debug("CiteprocRs driver initialized successfully");
-		this.Driver = Driver;
 	},
 	
 	Engine: class {
 		constructor(system, style, styleXML, locale, overrideLocale) {
 			this._styleXML = styleXML;
 			this._overrideLocale = overrideLocale;
-			this._numberIDToStringID = new Map();
-			this._stringIDToNumberID = new Map();
-			this._idCounter = 1;
 			
 			this.locale = locale;
 
@@ -71,14 +67,19 @@ Zotero.CiteprocRs = {
 				this._driver.free();
 			}
 			Zotero.debug('CiteprocRs: new Driver', 5);
-			this._driver = Zotero.CiteprocRs.Driver.new(this._styleXML, {
-				fetchLocale: this._fetchLocale.bind(this)
-			}, this._format);
+			this._driver = Zotero.CiteprocRs.Driver.new({
+				style: this._styleXML,
+				format: this._format,
+				fetcher: {
+					fetchLocale: this._fetchLocale.bind(this),
+				},
+				localeOverride: this._overrideLocale ? this.locale : undefined,
+			}).unwrap();
+			// Make sure citeproc-rs has all the locales it needs
+			// await this.driver.fetchAll();
 		}
 		
-		// Manually overriding locale since citeproc-rs does not support that natively
 		_fetchLocale(lang) {
-			lang = this._overrideLocale ? this.locale : lang;
 			return Zotero.Cite.System.prototype.retrieveLocale(lang);
 		}
 		
@@ -96,7 +97,7 @@ Zotero.CiteprocRs = {
 				let citeprocItem = this.sys.retrieveItem(citationItem.id);
 				citeprocItem.id = `${citeprocItem.id}`;
 				Zotero.debug(`CiteprocRs: insertReference ${JSON.stringify(citeprocItem)}`, 5);
-				this._driver.insertReference(citeprocItem);
+				this._driver.insertReference(citeprocItem).unwrap();
 				cites.push({ id: `${citeprocItem.id}`, locator: undefined, locators: undefined });
 			}
 			return cites;
@@ -105,7 +106,7 @@ Zotero.CiteprocRs = {
 		_getClusterOrder(citations) {
 			let clusters = [];
 			for (let [citationID, noteIndex] of citations) {
-				let cluster = { id: this._stringIDToNumberID.get(citationID) };
+				let cluster = { id: citationID };
 				noteIndex = typeof noteIndex == "string" ? parseInt(noteIndex) : noteIndex;
 				if (noteIndex) {
 					cluster.note = noteIndex;
@@ -118,10 +119,9 @@ Zotero.CiteprocRs = {
 		previewCitationCluster(citation, citationsPre, citationsPost, outputFormat) {
 			if (!citation.citationID) citation.citationID = Zotero.Utilities.randomString(10);
 			
-			let cluster = { id: 0 };
-			cluster.cites = this._insertCitationReferences(citation);
+			let cites = this._insertCitationReferences(citation);
 			
-			let thisClusterOrder = { id: 0 };
+			let thisClusterOrder = { };
 			let noteIndex = citation.properties.noteIndex;
 			noteIndex = typeof noteIndex == "string" ? parseInt(noteIndex) : noteIndex;
 			if (noteIndex) {
@@ -130,33 +130,30 @@ Zotero.CiteprocRs = {
 			let allClusterOrder = this._getClusterOrder(citationsPre.concat(citationsPost));
 			allClusterOrder.splice(citationsPre.length, 0, thisClusterOrder);
 			
-			Zotero.debug(`CiteprocRs: previewCitationCluster ${JSON.stringify([cluster, allClusterOrder, outputFormat])}`, 5);
-			return this._driver.previewCitationCluster(cluster, allClusterOrder, outputFormat);
+			Zotero.debug(`CiteprocRs: previewCitationCluster ${JSON.stringify([cites, allClusterOrder, outputFormat])}`, 5);
+			return this._driver.previewCitationCluster(cites, allClusterOrder, outputFormat).unwrap();
 		}
 		
 		insertCluster(citation) {
-			const numericID = this._idCounter++;
-			let cluster = { id: numericID };
-			this._stringIDToNumberID.set(citation.citationID, numericID);
-			this._numberIDToStringID.set(numericID, citation.citationID);
+			let cluster = { id: citation.citationID };
 			cluster.cites = this._insertCitationReferences(citation);
 
 			Zotero.debug(`CiteprocRs: insertCluster ${JSON.stringify(cluster)}`, 5);
-			this._driver.insertCluster(cluster);
+			this._driver.insertCluster(cluster).unwrap();
 			return cluster;
 		}
 	
 		setClusterOrder(citations) {
 			let clusters = this._getClusterOrder(citations);
 			Zotero.debug(`CiteprocRs: setClusterOrder ${JSON.stringify(clusters)}`, 5);
-			this._driver.setClusterOrder(clusters);
+			this._driver.setClusterOrder(clusters).unwrap();
 		}
 		
 		getBatchedUpdates() {
 			Zotero.debug(`CiteprocRs: batchedUpdates`, 5);
-			let updateSummary = this._driver.batchedUpdates();
-			updateSummary.clusters = updateSummary.clusters.map(([numberID, output]) => {
-				return [this._numberIDToStringID.get(numberID), output];
+			let updateSummary = this._driver.batchedUpdates().unwrap();
+			updateSummary.clusters = updateSummary.clusters.map(([id, output]) => {
+				return [id, output];
 			});
 			return updateSummary;
 		}
@@ -179,10 +176,10 @@ Zotero.CiteprocRs = {
 				citeprocItem.id = `${citeprocItem.id}`;
 				referenceIDs.push(citeprocItem.id);
 				Zotero.debug(`CiteprocRs: insertReference ${JSON.stringify(citeprocItem)}`, 5);
-				this._driver.insertReference(citeprocItem);
+				this._driver.insertReference(citeprocItem).unwrap();
 			}
 			Zotero.debug(`CiteprocRs: includeUncitedItems ${JSON.stringify(referenceIDs)}`);
-			this._driver.includeUncited({ Specific: referenceIDs });
+			this._driver.includeUncited({ Specific: referenceIDs }).unwrap();
 		}
 		
 		makeBibliography() {
@@ -190,7 +187,7 @@ Zotero.CiteprocRs = {
 			
 			// Converting from the wrongly documented citeproc-rs return format
 			// to the awfully named citeproc-js format. Sigh.
-			let bibliographyMeta = this._driver.bibliographyMeta();
+			let bibliographyMeta = this._driver.bibliographyMeta().unwrap();
 			bibliographyMeta = Object.assign(bibliographyMeta, {
 				maxoffset: bibliographyMeta.maxOffset,
 				linespacing: bibliographyMeta.lineSpacing,
@@ -202,7 +199,7 @@ Zotero.CiteprocRs = {
 			bibliographyMeta['second-field-align'] = bibliographyMeta.secondFieldAlign;
 			
 			Zotero.debug(`CiteprocRs: makeBibliography`, 5);
-			const bibliographyEntries = this._driver.makeBibliography();
+			const bibliographyEntries = this._driver.makeBibliography().unwrap();
 			// Crazy citeproc-rs behavior here
 			const entry_ids = bibliographyEntries.map(entry => [entry.id]);
 			const strings = bibliographyEntries.map(entry => entry.value);
